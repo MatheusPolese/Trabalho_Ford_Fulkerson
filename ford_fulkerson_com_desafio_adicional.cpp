@@ -29,6 +29,12 @@ int quantidadeArestas;
 int origem;
 int destino;
 
+// Verifica se dois vertices sao validos e diferentes entre si
+bool verticesValidos(int a, int b)
+{
+    return a >= 0 && a < quantidadeVertices && b >= 0 && b < quantidadeVertices && a != b;
+}
+
 void cadastrarVertices()
 {
     cout << "Informe a quantidade de vertices: ";
@@ -63,7 +69,7 @@ void adicionarAresta(int origem, int destino, int capacidade)//sera acionada por
     novaAresta->fluxo = 0;
     novaAresta->original = true;
 
-    // Configuracao da aresta reversa, aresta fantasma do grafo residual, usada posteiormente
+    // Configuracao da aresta reversa, aresta fantasma do grafo residual, usada posteriormente
     arestaReversa->destino = origem;
     arestaReversa->capacidade = 0;
     arestaReversa->fluxo = 0;
@@ -104,7 +110,7 @@ void cadastrarArestas()
         cin >> origem;
         cout << "Vertice de destino: ";
         cin >> destino;
-        while (origem < 0 || origem >= quantidadeVertices || destino < 0 || destino >= quantidadeVertices || origem == destino)
+        while (!verticesValidos(origem, destino))
         {
             cout << "Vertices invalidos. Informe novamente.\n";
             cout << "Vertice de origem: ";
@@ -132,7 +138,7 @@ void definirOrigemDestino()
     cin >> origem;
     cout << "Informe o vertice de destino: ";
     cin >> destino;
-    while (origem < 0 || origem >= quantidadeVertices || destino < 0 || destino >= quantidadeVertices || origem == destino)
+    while (!verticesValidos(origem, destino))
     {
         cout << "\nVertices invalidos. Informe novamente.\n";
         cout << "Vertice de origem: ";
@@ -152,13 +158,13 @@ bool buscarCaminhoDFS(int atual, int fim, bool visitado[], Aresta *caminho[])
         return true;
     }
 
-    Aresta *aresta = grafo[atual]->listaAdjacencia; //percorre lista de ajdjacencia do vertice atual
+    Aresta *aresta = grafo[atual]->listaAdjacencia; //percorre lista de adjacencia do vertice atual
 
     while (aresta != NULL)
     {
         int proximo = aresta->destino;
         int capacidadeResidual = aresta->capacidade - aresta->fluxo; // Calcula a capacidade que ainda pode ser utilizada
-        if (capacidadeResidual > 0 && !visitado[proximo])// verifica se existe capacidadel residual e se o vertice ainda nao foi visitado 
+        if (capacidadeResidual > 0 && !visitado[proximo])// verifica se existe capacidade residual e se o vertice ainda nao foi visitado 
         {
             caminho[proximo] = aresta;// Armazena a aresta utilizada para chegar ao vertice
             if (buscarCaminhoDFS(proximo, fim, visitado, caminho))// Chamada recursiva para o proximo vertice
@@ -169,73 +175,6 @@ bool buscarCaminhoDFS(int atual, int fim, bool visitado[], Aresta *caminho[])
         aresta = aresta->proxima;
     }
     return false;
-}
-
-// Funcao principal do algoritmo Ford-Fulkerson
-int calcularFluxoMaximo()
-{
-    int fluxoMaximo = 0;
-
-    bool *visitado = new bool[quantidadeVertices];
-
-    Aresta **caminho = new Aresta *[quantidadeVertices];
-
-    while (true)// Procura caminhos aumentantes enquanto existirem
-    {
-        for (int i = 0; i < quantidadeVertices; i++) // Inicializa os arrays antes de cada busca
-        {
-            visitado[i] = false;
-            caminho[i] = NULL;
-        }
-        // Procura um caminho entre origem e destino
-        bool encontrouCaminho = buscarCaminhoDFS(origem, destino, visitado, caminho);
-
-        // Se nao encontrou caminho, o algoritmo terminou
-        if (!encontrouCaminho)
-        {
-            break;
-        }
-
-        // Inicialmente, o gargalo recebe um valor muito grande
-        int gargalo = 2147483647;
-
-        // Percorre o caminho para encontrar a menor capacidade residual
-        int atual = destino;
-
-        while (atual != origem)
-        {
-            Aresta *aresta = caminho[atual];
-
-            int capacidadeResidual = aresta->capacidade - aresta->fluxo;// (fluxo atual) - (capacidade da aresta)
-
-            if (capacidadeResidual < gargalo)
-            {
-                gargalo = capacidadeResidual;
-            }
-            atual = aresta->reversa->destino; // Volta para o vertice anterior do caminho
-        }
-
-        atual = destino;// Atualiza o fluxo de todas as arestas do caminho
-
-        while (atual != origem)
-        {
-            Aresta *aresta = caminho[atual];
-            
-            aresta->fluxo += gargalo; // Aumenta o fluxo da aresta utilizada
-
-            aresta->reversa->fluxo -= gargalo; // Atualiza o fluxo da aresta reversa
-
-            atual = aresta->reversa->destino;
-        }
-
-        // Soma o gargalo ao fluxo maximo encontrado
-        fluxoMaximo += gargalo;
-    }
-
-    // Libera os arrays auxiliares
-    delete[] visitado;
-    delete[] caminho;
-    return fluxoMaximo;
 }
 
 // Funcao para mostrar o grafo original
@@ -273,7 +212,39 @@ void mostrarGrafo()
     }
 }
 
-int mostrar_ford_fulkerson() {
+// Mostra o fluxo final de cada conexao e identifica as que atingiram a capacidade maxima
+void mostrarFluxosFinais()
+{
+    cout << "\n===== FLUXO UTILIZADO EM CADA CONEXAO =====\n";
+    cout << "Capacidade = quanto a conexao suporta | Fluxo = quanto realmente passa por ela\n\n";
+
+    int quantidadeSaturadas = 0;
+
+    for (int i = 0; i < quantidadeVertices; i++)
+    {
+        Aresta *aresta = grafo[i]->listaAdjacencia;
+        while (aresta != NULL)
+        {
+            if (aresta->original) // reversas nao sao conexoes reais
+            {
+                cout << i << " -> " << aresta->destino
+                     << " | Capacidade: " << aresta->capacidade
+                     << " | Fluxo: " << aresta->fluxo;
+
+                if (aresta->capacidade > 0 && aresta->fluxo == aresta->capacidade)
+                {
+                    cout << " | [SATURADA]";
+                    quantidadeSaturadas++;
+                }
+                cout << endl;
+            }
+            aresta = aresta->proxima;
+        }
+    }
+    cout << "\nConexoes que atingiram a capacidade maxima: " << quantidadeSaturadas << "\n";
+}
+
+int executarFordFulkerson() {
 
     int fluxoMaximo = 0;
     int numeroCaminho = 0;
@@ -404,6 +375,8 @@ int mostrar_ford_fulkerson() {
 
     delete[] visitado;
     delete[] caminho;
+
+    mostrarFluxosFinais();
 
     return fluxoMaximo;
 }
@@ -537,7 +510,7 @@ int main()
     cout << "Destino: " << destino << "\n";
 
     // Primeira execucao do algoritmo, mostrando cada iteracao.
-    int fluxoAnterior = mostrar_ford_fulkerson();
+    int fluxoAnterior = executarFordFulkerson();
 
     cout << "\n===== RESULTADO FINAL =====\n";
     cout << "Fluxo maximo encontrado: " << fluxoAnterior << "\n";
@@ -554,7 +527,7 @@ int main()
             alterarCapacidade();
             zerarFluxo();
             mostrarGrafo();
-            int fluxoNovo = mostrar_ford_fulkerson();
+            int fluxoNovo = executarFordFulkerson();
 
             cout << "\n===== COMPARACAO =====\n";
             cout << "Fluxo anterior: " << fluxoAnterior << "\n";
