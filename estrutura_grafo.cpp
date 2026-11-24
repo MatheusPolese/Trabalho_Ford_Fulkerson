@@ -29,7 +29,7 @@ int quantidadeArestas;
 void cadastrarVertices()
 {
     do
-    {
+{
         cout << "Informe a quantidade de vertices (maior que 0): ";
         cin >> quantidadeVertices;
 
